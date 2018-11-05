@@ -1,11 +1,13 @@
 from model.user import User
 from model.product import Product
 from model.review import Review
+from lib.spectral_clustering import SpectralCluster
+import pickle
 
 
-def parse_user(line, file):
-    name = line.split()[1]
-    new_user = User(name)
+def parse_user(cnt, line, file):
+    name = line.split(':')[1].strip()
+    new_user = User(cnt, name)
     names = file.readline().replace('friends:\t', '').split('\t')
     new_user.friendsNames = set(names)
     new_user.summary = parse_line('summary', file)
@@ -13,12 +15,14 @@ def parse_user(line, file):
     return new_user
 
 
-def connect_friends(user, dictionary):
-    for name in user.friendsNames:
-        if name not in dictionary:
-            continue
-        else:
-            user.add_friend(dictionary[name])
+def connect_friends(users):
+    for _, user in users.items():
+        for name in user.friendsNames:
+            if name not in users:
+                continue
+            else:
+                user.add_friend(users[name])
+    return users
 
 
 def parse_product(first, file):
@@ -50,25 +54,50 @@ def parse_line(line_key, file):
     return value
 
 
-users = dict()
+def save_users(users, path):
+    f = open(path, "wb")
+    pickle.dump(users, f)
+    f.close()
 
-with open('./data/reviews') as file:
-    for cnt, line in enumerate(file):
-        if line.startswith('user: '):
-            user = parse_user(line, file)
-            users[user.username] = user
 
-for name, user in users.items():
-    connect_friends(user, users)
+def load_users(path):
+    f = open(path, "rb")
+    users = pickle.load(f)
+    users = connect_friends(users)
+    return users
 
-print(users['abbey'].review)
 
-products = []
-with open('./data/training') as file:
-    for cnt, line in enumerate(file):
-        if line.startswith('product/productId: '):
-            product = parse_product(line, file)
-            products.append(product)
+# users = dict()
+#
+# with open('./data/reviews') as file:
+#     for cnt, line in enumerate(file):
+#         if line.startswith('user: '):
+#             user = parse_user(len(users), line, file)
+#             users[user.username] = user
+#         if len(users) == 100:
+#             break
+#
+# connect_friends(users)
+#
+# laplacian_matrix = SpectralCluster.generate_laplacian(users)
+# eigen_users = SpectralCluster.compute_eigen(laplacian_matrix, users)
+#
+# save_users(eigen_users, 'out/100users')
 
-print(len(products))
+users = load_users('out/users')
+
+print(len(users))
+left, right = SpectralCluster.divide(users, 1)
+
+print(len(left))
+print(len(right))
+
+# products = []
+# with open('./data/training') as file:
+#     for cnt, line in enumerate(file):
+#         if line.startswith('product/productId: '):
+#             product = parse_product(line, file)
+#             products.append(product)
+#
+# print(len(products))
 
